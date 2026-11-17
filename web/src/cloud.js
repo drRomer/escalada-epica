@@ -39,13 +39,16 @@ function start(){
       return {text:'Conectada: '+who+(st.lastOk?' · guardado '+ago(st.lastOk):''),ok:true};
     },
     async login(){
+      if(busy)return;
       busy='Abriendo Google…';
+      // si la ventana de Google nunca aparece (bloqueada), no dejar el menú pegado
+      const guard=setTimeout(()=>{if(busy==='Abriendo Google…'){busy='';EE.toast('No se abrió la ventana de Google. Toca CONECTAR otra vez; si no aparece, permite ventanas emergentes para este sitio.',4200);}},12000);
       try{await signInWithPopup(auth,prov);}
       catch(e){
         if(e&&['auth/popup-blocked','auth/operation-not-supported-in-this-environment'].includes(e.code)){busy='';await signInWithRedirect(auth,prov);return;}
         if(!CANCEL.includes(e&&e.code))EE.toast(errText(e),3200);
       }
-      busy='';
+      clearTimeout(guard);busy='';
     },
     async logout(){try{await sync.flush();}catch(e){} try{await signOut(auth);EE.toast('Sesión cerrada',2200);}catch(e){EE.toast(errText(e));}},
     async wipe(){
@@ -59,6 +62,7 @@ function start(){
       busy='';
     }
   };
+  window.addEventListener('focus',()=>{if(busy==='Abriendo Google…')setTimeout(()=>{if(busy==='Abriendo Google…'&&!user)busy='';},1500);});
   const again=async()=>{if(user)report(await sync.resync());};
   window.addEventListener('online',again);
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')sync.flush();else again();});

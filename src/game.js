@@ -97,7 +97,7 @@
       if (KM.down.includes(e.code)) edge.down = true;
       if (KM.left.includes(e.code)) edge.left = true;
       if (KM.right.includes(e.code)) edge.right = true;
-      if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyZ') edge.ok = true;
+      if ((e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyZ') && !cloudLoginGesture()) edge.ok = true;
       if (e.code === 'Escape' || e.code === 'Backspace' || e.code === 'KeyX') edge.back = true;
       if (e.code === 'Escape' || e.code === 'KeyP') edge.pause = true;
       if (e.code === 'KeyQ') { edge.jump = true; keyDiag = -1; }
@@ -158,6 +158,15 @@
     const down = e => { e.preventDefault(); AUDIO.init(); lastDevice = 'touch'; try { dpad.setPointerCapture(e.pointerId); } catch (er) { } pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); upd(); };
     const move = e => { if (pts.has(e.pointerId)) { e.preventDefault(); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); upd(); } };
     const up = e => { pts.delete(e.pointerId); upd(); };
+    const releasers = [() => { pts.clear(); upd(); }];
+    // red de seguridad: si el navegador pierde un "soltar" (popup, notificación, gesto del sistema), se libera todo
+    const releaseAll = () => { for (const f of releasers) f(); };
+    const dropPointer = e => { if (pts.delete(e.pointerId)) upd(); for (const f of releasers.slice(1)) f(e.pointerId); };
+    window.addEventListener('pointerup', dropPointer, true); window.addEventListener('pointercancel', dropPointer, true);
+    window.addEventListener('touchend', e => { if (!e.touches || e.touches.length === 0) releaseAll(); }, true);
+    window.addEventListener('touchcancel', e => { if (!e.touches || e.touches.length === 0) releaseAll(); }, true);
+    window.addEventListener('blur', releaseAll); window.addEventListener('pagehide', releaseAll);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') releaseAll(); });
     dpad.addEventListener('pointerdown', down); dpad.addEventListener('pointermove', move);
     dpad.addEventListener('pointerup', up); dpad.addEventListener('pointercancel', up); dpad.addEventListener('lostpointercapture', up);
     function btn(id, name, onPress) {
@@ -167,6 +176,7 @@
       el.addEventListener('pointerdown', e => { e.preventDefault(); AUDIO.init(); lastDevice = 'touch'; try { el.setPointerCapture(e.pointerId); } catch (er) { } ids.add(e.pointerId); set(); });
       const rel = e => { ids.delete(e.pointerId); set(); };
       el.addEventListener('pointerup', rel); el.addEventListener('pointercancel', rel); el.addEventListener('lostpointercapture', rel);
+      releasers.push(pid => { if (pid === undefined) ids.clear(); else ids.delete(pid); set(); });
     }
     // tres botones de salto: ↖ ↑ ↗ (los diagonales mantienen la dirección mientras se presionan)
     const jb = (id, d) => {
@@ -174,7 +184,8 @@
       const set = () => { const v = ids.size > 0; el.classList.toggle('on', v); touch.jump = ['bL', 'bU', 'bR'].some(k => document.getElementById(k).classList.contains('on')); if (v) touch.diag = d; else if (touch.diag === d) touch.diag = 0; };
       el.addEventListener('pointerdown', e => { e.preventDefault(); AUDIO.init(); lastDevice = 'touch'; try { el.setPointerCapture(e.pointerId); } catch (er) { } ids.add(e.pointerId); edge.jump = true; edge.ok = true; if (d < 0) edge.left = true; if (d > 0) edge.right = true; set(); });
       const rel = e => { ids.delete(e.pointerId); set(); };
-      el.addEventListener('pointerup', rel); el.addEventListener('pointercancel', rel); el.addEventListener('lostpointercapture', rel);
+      el.addEventListener('pointerup', e => { rel(e); cloudLoginGesture(); }); el.addEventListener('pointercancel', rel); el.addEventListener('lostpointercapture', rel);
+      releasers.push(pid => { if (pid === undefined) ids.clear(); else ids.delete(pid); set(); });
     };
     jb('bL', -1); jb('bU', 0); jb('bR', 1);
     document.getElementById('mPause').addEventListener('pointerdown', e => { e.preventDefault(); AUDIO.init(); if (state === 'play') openPause(); else if (state === 'pause') closePause(); else edge.back = true; });
@@ -185,12 +196,24 @@
   if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) touchMode = true;
 
   let hits = [];
+  // Safari (iPhone) solo abre la ventana de Google si se pide al SOLTAR el dedo, en un clic o al pulsar una tecla
+  function cloudLoginGesture() {
+    if (state !== 'cloud' || confirmQ || !window.EE_CLOUD || EE_CLOUD.user()) return false;
+    if (cloudItems()[menuIdx] !== 'CONECTAR CON GOOGLE') return false;
+    AUDIO.sfx('select'); EE_CLOUD.login(); return true;
+  }
+  canvas.addEventListener('pointerup', e => {
+    if (state !== 'cloud') return;
+    const r = canvas.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width * VW, y = (e.clientY - r.top) / r.height * VH;
+    for (const h of hits) if (h.login && x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) { menuIdx = h.login - 1; cloudLoginGesture(); return; }
+  });
   canvas.addEventListener('pointerdown', e => {
     AUDIO.init();
     const r = canvas.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width * VW, y = (e.clientY - r.top) / r.height * VH;
     if (e.pointerType === 'touch') { lastDevice = 'touch'; enableTouch(); }
-    for (let i = hits.length - 1; i >= 0; i--) { const h = hits[i]; if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) { h.fn(); return; } }
+    for (let i = hits.length - 1; i >= 0; i--) { const h = hits[i]; if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) { if (!h.login) h.fn(); return; } }
   });
   function input() {
     const g = readPad() || {};
@@ -1525,7 +1548,7 @@
     if (it === 'VOLVER') { goTitle(); menuIdx = 5; return; }
     if (it === 'PRIVACIDAD') { location.href = 'privacidad.html'; return; }
     if (!C) return;
-    if (it === 'CONECTAR CON GOOGLE') C.login();
+    if (it === 'CONECTAR CON GOOGLE') { /* se abre en cloudLoginGesture (al soltar el dedo / clic / tecla) */ }
     else if (it === 'SALIR DE LA CUENTA') { confirmQ = { q: '¿CERRAR SESIÓN?', d: 'Tu progreso sigue guardado en este dispositivo.', yes: 'SALIR', no: 'CANCELAR', fn: () => C.logout() }; menuIdx = 1; }
     else if (it === 'BORRAR DATOS DE LA NUBE') { confirmQ = { q: '¿BORRAR TUS DATOS DE LA NUBE?', d: 'Se elimina tu copia en la nube y tu cuenta del juego. El progreso de este dispositivo se mantiene.', yes: 'BORRAR', no: 'CANCELAR', fn: () => C.wipe() }; menuIdx = 1; }
   }
@@ -1543,7 +1566,9 @@
       para(info.text, info.err ? COL.red : info.ok ? COL.green : COL.dim);
       para('Solo se guarda tu progreso (niveles, gemas, capas y poderes), con un identificador interno. Sin nombre ni correo.', COL.dim);
     }
+    const h0 = hits.length;
     drawMenu(cloudItems(), VW / 2, Math.max(y + 8, Math.round(VH * 0.55)), 16, menuIdx, cloudPick);
+    cloudItems().forEach((it, i) => { if (it === 'CONECTAR CON GOOGLE' && hits[h0 + i]) hits[h0 + i].login = i + 1; });
   }
   function renderTitle() {
     scene('cumbre', 0.95);
@@ -1877,6 +1902,7 @@
     story: k => { state = 'story'; storyI = k; storyT = 0; storyNext = k * 10; }, cam: y => { cam = clampCam(y); },
     sim: (inp, n, nh) => { noHaz = !!nh; for (let k = 0; k < n; k++) { if (state !== 'play') break; if (nh) player.lev = false; updatePlay(STEP, inp, {}); } noHaz = false; return state; },
     powers: (lev, hearts) => { save.lev = lev; save.hearts = hearts; },
+    hits: () => hits, touch: () => Object.assign({}, touch),
     get falls() { return falls; }, get time() { return time; }, get got() { return got; },
     unlockAll: () => { save.unlocked = LEVELS.length; writeSave(); }, keys,
     skipBoss: () => { if (B) { B.st = 'fight'; B.rise = 1; B.atk = 2; freezeInput = 0; } }
