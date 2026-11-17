@@ -244,7 +244,7 @@
       fn: () => { window.EE.apply(d, d.pt || 0); for (const f of saveHooks) try { f(); } catch (e) { } window.EE.toast('Progreso cargado: ' + n + ' niveles', 3000); } };
     menuIdx = 1;
   }
-  canvas.addEventListener('pointerup', e => {
+  canvas.addEventListener('click', e => {
     if (state !== 'cloud') return;
     const r = canvas.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width * VW, y = (e.clientY - r.top) / r.height * VH;
@@ -1613,7 +1613,18 @@
     drawMenu(cloudItems(), VW / 2, Math.min(Math.max(y + 8, Math.round(VH * 0.45)), VH - cloudItems().length * 15 - 8), 15, menuIdx, cloudPick);
     cloudItems().forEach((it, i) => { if (GESTURE.includes(it) && hits[h0 + i]) hits[h0 + i].login = i + 1; });
   }
-  const BUILD_ID = window.EE_BUILD || 'vista previa';
+  const BUILD_ID = window.EE_BUILD || 'PREVIA';
+  // letra diminuta 3x5 (solo para la versión)
+  const TINY = { '0': '75557', '1': '26227', '2': '71747', '3': '71317', '4': '55711', '5': '74717', '6': '74757', '7': '71111', '8': '75757', '9': '75717', A: '25755', B: '65656', C: '74447', D: '65556', E: '74647', F: '74644', V: '55552', P: '75744', R: '65655', I: '72227', ' ': '00000' };
+  function drawTiny(str, xr, y, col) {
+    ctx.fillStyle = col; let x = xr - str.length * 4 + 1;
+    for (const ch of str) {
+      const g = TINY[ch] || TINY[' '];
+      // 5 filas: cada dígito es un patrón de 3 bits
+      [...g].forEach((d, j) => { const v = +d; for (let i = 0; i < 3; i++) if (v & (4 >> i)) ctx.fillRect(x + i, y + j, 1, 1); });
+      x += 4;
+    }
+  }
   function renderTitle() {
     scene('cumbre', 0.95);
     drawMountain(96, VH + 10, Math.round(VH * 0.62), 92);
@@ -1641,7 +1652,7 @@
     ctx.fillStyle = 'rgba(18,10,20,0.7)'; ctx.fillRect(VW / 2 - 62, my - 8, 124, items.length * 15 + 4);
     drawMenu(items, VW / 2, my, 15, menuIdx, titlePick);
     FONT.draw(ctx, touchMode ? 'TOCA PARA ELEGIR' : 'ENTER ELEGIR · M SONIDO', VW / 2, VH - 12, COL.dim, { align: 'center', outline: COL.ink });
-    ctx.globalAlpha = 0.55; FONT.draw(ctx, 'V ' + String(BUILD_ID).slice(-6).toUpperCase(), VW - 3, VH - 8, COL.dim, { align: 'right' }); ctx.globalAlpha = 1;
+    ctx.globalAlpha = 0.5; drawTiny('V' + String(BUILD_ID).slice(-6).toUpperCase(), VW - 2, VH - 6, COL.dim); ctx.globalAlpha = 1;
   }
 
   // historia de cada etapa

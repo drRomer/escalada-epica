@@ -8,4 +8,4 @@ window.EE_WEB = 1;
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (r) { r.update().catch(function () {}); }).catch(function () {});
   });
 })();
-window.EE_BUILD = '20261117-06ca99';
+window.EE_BUILD = '20261117-144ef1';

@@ -26,9 +26,7 @@ function start(){
   const report=c=>{if(c==='cloud')EE.toast('Progreso recuperado de la nube',3200);else if(c==='new')EE.toast('Tu progreso quedó respaldado en la nube',3000);};
 
   onAuthStateChanged(auth,async u=>{user=u?{uid:String(u.uid),email:u.email||''}:null;report(await sync.setUser(user&&user.uid));});
-  let redir=false;try{redir=sessionStorage.getItem('ee_redir')==='1';sessionStorage.removeItem('ee_redir');}catch(e){}
-  getRedirectResult(auth).then(r=>{if(redir&&!r&&!auth.currentUser)EE.toast('No se pudo completar el inicio con Google desde la app instalada. Usa COPIAR / PEGAR CÓDIGO, o entra desde Safari.',5200);})
-    .catch(()=>EE.toast('No se pudo iniciar sesión con Google. Prueba con COPIAR / PEGAR CÓDIGO.',4200));
+  getRedirectResult(auth).catch(()=>EE.toast('No se pudo iniciar sesión con Google',3200));
 
   window.EE_CLOUD={
     user:()=>user,
@@ -42,12 +40,6 @@ function start(){
     },
     async login(){
       if(busy)return;
-      if(navigator.standalone===true){   // app instalada en iPhone: la ventana de Google no puede devolver el resultado
-        busy='Abriendo Google…';try{sessionStorage.setItem('ee_redir','1');}catch(e){}
-        try{await sync.flush();}catch(e){}
-        try{await signInWithRedirect(auth,prov);}catch(e){busy='';EE.toast(errText(e),3200);}
-        return;
-      }
       busy='Abriendo Google…';
       // si la ventana de Google nunca aparece (bloqueada), no dejar el menú pegado
       const guard=setTimeout(()=>{if(busy==='Abriendo Google…'){busy='';EE.toast('No se abrió la ventana de Google. Toca CONECTAR otra vez; si no aparece, permite ventanas emergentes para este sitio.',4200);}},12000);
