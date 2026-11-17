@@ -88,6 +88,7 @@ def main():
     open(os.path.join(OUT, 'cloud.js'), 'wb').write(cloud)
     for n in ['config.js', 'web.js', 'og.jpg']:
         shutil.copy(os.path.join(STATIC, n), os.path.join(OUT, n))
+    open(os.path.join(OUT, 'web.js'), 'a', encoding='utf-8').write("window.EE_BUILD = '" + build + "';\n")
     shutil.copytree(os.path.join(STATIC, 'icons'), os.path.join(OUT, 'icons'))
     priv = open(os.path.join(STATIC, 'privacidad.html'), encoding='utf-8').read()
     open(os.path.join(OUT, 'privacidad.html'), 'w', encoding='utf-8').write(priv.replace('__UPDATED__', today.strftime('%d-%m-%Y')).replace('__REPO__', REPO))

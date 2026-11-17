@@ -1,8 +1,8 @@
 // Service worker de Escalada Épica: juego disponible sin conexión.
 // HTML y config: red primero (siempre la última versión si hay señal). Resto: caché primero.
-const VERSION = '20261117-aba04d';
+const VERSION = '20261117-06ca99';
 const CACHE = 'ee-' + VERSION;
-const PRECACHE = ["./", "index.html", "config.js", "web.js?v=20261117-aba04d", "cloud.js?v=20261117-aba04d", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/favicon-64.png", "privacidad.html"];
+const PRECACHE = ["./", "index.html", "config.js", "web.js?v=20261117-06ca99", "cloud.js?v=20261117-06ca99", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/favicon-64.png", "privacidad.html"];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -39,7 +39,7 @@ self.addEventListener('fetch', (e) => {
   if (req.mode === 'navigate') {
     const key = url.origin + url.pathname;
     const fallback = () => caches.match(key).then((m) => m || caches.match(self.registration.scope));
-    const net = fromNet(req, key);
+    const net = fromNet(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' }), key);   // sin caché HTTP: siempre la última versión
     e.waitUntil(net.catch(() => {}));
     e.respondWith(new Promise((resolve) => {
       let done = false;

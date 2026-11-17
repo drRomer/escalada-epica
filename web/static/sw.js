@@ -39,7 +39,7 @@ self.addEventListener('fetch', (e) => {
   if (req.mode === 'navigate') {
     const key = url.origin + url.pathname;
     const fallback = () => caches.match(key).then((m) => m || caches.match(self.registration.scope));
-    const net = fromNet(req, key);
+    const net = fromNet(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' }), key);   // sin caché HTTP: siempre la última versión
     e.waitUntil(net.catch(() => {}));
     e.respondWith(new Promise((resolve) => {
       let done = false;

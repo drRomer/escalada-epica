@@ -97,7 +97,7 @@
       if (KM.down.includes(e.code)) edge.down = true;
       if (KM.left.includes(e.code)) edge.left = true;
       if (KM.right.includes(e.code)) edge.right = true;
-      if ((e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyZ') && !cloudLoginGesture()) edge.ok = true;
+      if ((e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyZ') && !cloudGesture()) edge.ok = true;
       if (e.code === 'Escape' || e.code === 'Backspace' || e.code === 'KeyX') edge.back = true;
       if (e.code === 'Escape' || e.code === 'KeyP') edge.pause = true;
       if (e.code === 'KeyQ') { edge.jump = true; keyDiag = -1; }
@@ -155,13 +155,25 @@
       touch.left = l; touch.right = rr; touch.up = u; touch.down = d;
       dpad.classList.toggle('L', l); dpad.classList.toggle('R', rr); dpad.classList.toggle('U', u); dpad.classList.toggle('D', d);
     }
-    const down = e => { e.preventDefault(); AUDIO.init(); lastDevice = 'touch'; try { dpad.setPointerCapture(e.pointerId); } catch (er) { } pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); upd(); };
+    const down = e => { e.preventDefault(); AUDIO.init(); lastDevice = 'touch'; try { dpad.setPointerCapture(e.pointerId); } catch (er) { } pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); track(e.pointerId, id => { pts.delete(id); upd(); }); upd(); };
     const move = e => { if (pts.has(e.pointerId)) { e.preventDefault(); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); upd(); } };
-    const up = e => { pts.delete(e.pointerId); upd(); };
+    const up = e => { untrack(e.pointerId); pts.delete(e.pointerId); upd(); };
     const releasers = [() => { pts.clear(); upd(); }];
+    // registro común de dedos (cruz y botones) con la hora en que se apoyaron
+    const held = new Map();
+    const track = (id, drop) => held.set(id, { t: performance.now(), drop });
+    const untrack = id => held.delete(id);
+    // el sistema dice cuántos dedos hay en pantalla: si recordamos más (una notificación se tragó el "soltar"), se sueltan los más antiguos
+    const syncFingers = n => {
+      if (held.size <= n) return;
+      const arr = [...held.entries()].sort((a, b) => a[1].t - b[1].t);
+      for (let k = 0; k < arr.length - n; k++) { const [id, h] = arr[k]; held.delete(id); h.drop(id); }
+    };
+    for (const ev of ['touchstart', 'touchmove', 'touchend', 'touchcancel'])
+      window.addEventListener(ev, e => { const n = e.touches ? e.touches.length : 0; setTimeout(() => syncFingers(n), 0); }, { capture: true, passive: true });
     // red de seguridad: si el navegador pierde un "soltar" (popup, notificación, gesto del sistema), se libera todo
-    const releaseAll = () => { for (const f of releasers) f(); };
-    const dropPointer = e => { if (pts.delete(e.pointerId)) upd(); for (const f of releasers.slice(1)) f(e.pointerId); };
+    const releaseAll = () => { held.clear(); for (const f of releasers) f(); };
+    const dropPointer = e => { untrack(e.pointerId); if (pts.delete(e.pointerId)) upd(); for (const f of releasers.slice(1)) f(e.pointerId); };
     window.addEventListener('pointerup', dropPointer, true); window.addEventListener('pointercancel', dropPointer, true);
     window.addEventListener('touchend', e => { if (!e.touches || e.touches.length === 0) releaseAll(); }, true);
     window.addEventListener('touchcancel', e => { if (!e.touches || e.touches.length === 0) releaseAll(); }, true);
@@ -182,9 +194,9 @@
     const jb = (id, d) => {
       const el = document.getElementById(id), ids = new Set();
       const set = () => { const v = ids.size > 0; el.classList.toggle('on', v); touch.jump = ['bL', 'bU', 'bR'].some(k => document.getElementById(k).classList.contains('on')); if (v) touch.diag = d; else if (touch.diag === d) touch.diag = 0; };
-      el.addEventListener('pointerdown', e => { e.preventDefault(); AUDIO.init(); lastDevice = 'touch'; try { el.setPointerCapture(e.pointerId); } catch (er) { } ids.add(e.pointerId); edge.jump = true; edge.ok = true; if (d < 0) edge.left = true; if (d > 0) edge.right = true; set(); });
-      const rel = e => { ids.delete(e.pointerId); set(); };
-      el.addEventListener('pointerup', e => { rel(e); cloudLoginGesture(); }); el.addEventListener('pointercancel', rel); el.addEventListener('lostpointercapture', rel);
+      el.addEventListener('pointerdown', e => { e.preventDefault(); AUDIO.init(); lastDevice = 'touch'; try { el.setPointerCapture(e.pointerId); } catch (er) { } ids.add(e.pointerId); track(e.pointerId, id => { ids.delete(id); set(); }); edge.jump = true; edge.ok = true; if (d < 0) edge.left = true; if (d > 0) edge.right = true; set(); });
+      const rel = e => { untrack(e.pointerId); ids.delete(e.pointerId); set(); };
+      el.addEventListener('pointerup', e => { rel(e); cloudGesture(); }); el.addEventListener('pointercancel', rel); el.addEventListener('lostpointercapture', rel);
       releasers.push(pid => { if (pid === undefined) ids.clear(); else ids.delete(pid); set(); });
     };
     jb('bL', -1); jb('bU', 0); jb('bR', 1);
@@ -197,16 +209,46 @@
 
   let hits = [];
   // Safari (iPhone) solo abre la ventana de Google si se pide al SOLTAR el dedo, en un clic o al pulsar una tecla
-  function cloudLoginGesture() {
-    if (state !== 'cloud' || confirmQ || !window.EE_CLOUD || EE_CLOUD.user()) return false;
-    if (cloudItems()[menuIdx] !== 'CONECTAR CON GOOGLE') return false;
-    AUDIO.sfx('select'); EE_CLOUD.login(); return true;
+  const GESTURE = ['CONECTAR CON GOOGLE', 'COPIAR CÓDIGO DE PROGRESO', 'PEGAR CÓDIGO DE PROGRESO'];
+  function cloudGesture() {
+    if (state !== 'cloud' || confirmQ) return false;
+    const it = cloudItems()[menuIdx];
+    if (!GESTURE.includes(it)) return false;
+    AUDIO.sfx('select');
+    if (it === 'CONECTAR CON GOOGLE') { if (window.EE_CLOUD && !EE_CLOUD.user()) EE_CLOUD.login(); }
+    else if (it === 'COPIAR CÓDIGO DE PROGRESO') copyCode();
+    else pasteCode();
+    return true;
+  }
+  // código de progreso: respaldo sin cuenta (sirve entre Safari y la app instalada, o con otro dispositivo)
+  function codeHash(str) { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36); }
+  function makeCode() { const j = JSON.stringify(window.EE.progress()); const b = btoa(unescape(encodeURIComponent(j))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); return 'EE1.' + b + '.' + codeHash(b); }
+  function readCode(c) {
+    const m = /^EE1\.([A-Za-z0-9_-]+)\.([0-9a-z]+)$/.exec(String(c || '').replace(/\s+/g, ''));
+    if (!m || codeHash(m[1]) !== m[2]) return null;
+    try { return JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g, '+').replace(/_/g, '/'))))); } catch (e) { return null; }
+  }
+  function copyCode() {
+    const c = makeCode();
+    const ok = () => window.EE.toast('Código copiado. Pégalo en NUBE, PEGAR CÓDIGO, en el otro dispositivo o en la app.', 4200);
+    const fallback = () => { try { window.prompt('Copia este código de progreso:', c); } catch (e) { } };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(c).then(ok, fallback); else fallback();
+  }
+  function pasteCode() {
+    let c = null; try { c = window.prompt('Pega tu código de progreso:'); } catch (e) { }
+    if (!c) return;
+    const d = readCode(c);
+    if (!d) { window.EE.toast('Ese código no es válido. Cópialo completo, desde EE1 hasta el final.', 3800); return; }
+    const p = window.EE.clean(d), n = Object.keys(p.best).length;
+    confirmQ = { q: '¿REEMPLAZAR TU PROGRESO?', d: 'El código trae ' + n + ' nivel' + (n === 1 ? '' : 'es') + ' completado' + (n === 1 ? '' : 's') + '. Tu progreso de este dispositivo se reemplaza.', yes: 'REEMPLAZAR', no: 'CANCELAR',
+      fn: () => { window.EE.apply(d, d.pt || 0); for (const f of saveHooks) try { f(); } catch (e) { } window.EE.toast('Progreso cargado: ' + n + ' niveles', 3000); } };
+    menuIdx = 1;
   }
   canvas.addEventListener('pointerup', e => {
     if (state !== 'cloud') return;
     const r = canvas.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width * VW, y = (e.clientY - r.top) / r.height * VH;
-    for (const h of hits) if (h.login && x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) { menuIdx = h.login - 1; cloudLoginGesture(); return; }
+    for (const h of hits) if (h.login && x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) { menuIdx = h.login - 1; cloudGesture(); return; }
   });
   canvas.addEventListener('pointerdown', e => {
     AUDIO.init();
@@ -1519,7 +1561,7 @@
   }
 
   // título
-  function titleItems() { const it = ['JUGAR', 'MAPA DEL MONTE', 'CAPAS', 'CÓMO JUGAR', 'SONIDO: ' + (save.muted ? 'NO' : 'SÍ')]; if (window.EE_CLOUD) it.push('NUBE: ' + (EE_CLOUD.user() ? 'CONECTADA' : 'GOOGLE')); if (Object.keys(save.best).length) it[0] = 'CONTINUAR'; return it; }
+  function titleItems() { const it = ['JUGAR', 'MAPA DEL MONTE', 'CAPAS', 'CÓMO JUGAR', 'SONIDO: ' + (save.muted ? 'NO' : 'SÍ')]; it.push(window.EE_CLOUD ? 'NUBE: ' + (EE_CLOUD.user() ? 'CONECTADA' : 'GOOGLE') : 'NUBE / CÓDIGO'); if (Object.keys(save.best).length) it[0] = 'CONTINUAR'; return it; }
   function updateTitle(dt, inp, m) { animT += dt; menuNav(m, titleItems().length, titlePick); }
   function playLevel(i) {
     runStats = { time: 0, falls: 0, gems: 0 };
@@ -1539,7 +1581,9 @@
   function cloudItems() {
     if (confirmQ) return [confirmQ.yes, confirmQ.no];
     const u = window.EE_CLOUD && EE_CLOUD.user();
-    return u ? ['SALIR DE LA CUENTA', 'BORRAR DATOS DE LA NUBE', 'PRIVACIDAD', 'VOLVER'] : ['CONECTAR CON GOOGLE', 'PRIVACIDAD', 'VOLVER'];
+    const code = ['COPIAR CÓDIGO DE PROGRESO', 'PEGAR CÓDIGO DE PROGRESO'];
+    if (!window.EE_CLOUD) return [...code, 'VOLVER'];
+    return u ? ['SALIR DE LA CUENTA', 'BORRAR DATOS DE LA NUBE', ...code, 'PRIVACIDAD', 'VOLVER'] : ['CONECTAR CON GOOGLE', ...code, 'PRIVACIDAD', 'VOLVER'];
   }
   function cloudPick(i) {
     const C = window.EE_CLOUD;
@@ -1548,7 +1592,7 @@
     if (it === 'VOLVER') { goTitle(); menuIdx = 5; return; }
     if (it === 'PRIVACIDAD') { location.href = 'privacidad.html'; return; }
     if (!C) return;
-    if (it === 'CONECTAR CON GOOGLE') { /* se abre en cloudLoginGesture (al soltar el dedo / clic / tecla) */ }
+    if (GESTURE.includes(it)) { /* se ejecutan en cloudGesture (al soltar el dedo / clic / tecla) */ }
     else if (it === 'SALIR DE LA CUENTA') { confirmQ = { q: '¿CERRAR SESIÓN?', d: 'Tu progreso sigue guardado en este dispositivo.', yes: 'SALIR', no: 'CANCELAR', fn: () => C.logout() }; menuIdx = 1; }
     else if (it === 'BORRAR DATOS DE LA NUBE') { confirmQ = { q: '¿BORRAR TUS DATOS DE LA NUBE?', d: 'Se elimina tu copia en la nube y tu cuenta del juego. El progreso de este dispositivo se mantiene.', yes: 'BORRAR', no: 'CANCELAR', fn: () => C.wipe() }; menuIdx = 1; }
   }
@@ -1562,14 +1606,14 @@
     const para = (t, c) => { for (const l of FONT.wrap(t, VW - 24)) { FONT.draw(ctx, l, VW / 2, y, c, { align: 'center' }); y += 10; } y += 4; };
     if (confirmQ) { para(confirmQ.q, COL.gold); para(confirmQ.d, COL.cream); }
     else {
-      para('Guarda tu avance en tu cuenta de Google y sigue en otro celular o computador.', COL.cream);
+      para('Guarda tu avance en tu cuenta de Google, o copia un código de progreso para llevarlo a otro dispositivo.', COL.cream);
       para(info.text, info.err ? COL.red : info.ok ? COL.green : COL.dim);
-      para('Solo se guarda tu progreso (niveles, gemas, capas y poderes), con un identificador interno. Sin nombre ni correo.', COL.dim);
     }
     const h0 = hits.length;
-    drawMenu(cloudItems(), VW / 2, Math.max(y + 8, Math.round(VH * 0.55)), 16, menuIdx, cloudPick);
-    cloudItems().forEach((it, i) => { if (it === 'CONECTAR CON GOOGLE' && hits[h0 + i]) hits[h0 + i].login = i + 1; });
+    drawMenu(cloudItems(), VW / 2, Math.min(Math.max(y + 8, Math.round(VH * 0.45)), VH - cloudItems().length * 15 - 8), 15, menuIdx, cloudPick);
+    cloudItems().forEach((it, i) => { if (GESTURE.includes(it) && hits[h0 + i]) hits[h0 + i].login = i + 1; });
   }
+  const BUILD_ID = window.EE_BUILD || 'vista previa';
   function renderTitle() {
     scene('cumbre', 0.95);
     drawMountain(96, VH + 10, Math.round(VH * 0.62), 92);
@@ -1597,6 +1641,7 @@
     ctx.fillStyle = 'rgba(18,10,20,0.7)'; ctx.fillRect(VW / 2 - 62, my - 8, 124, items.length * 15 + 4);
     drawMenu(items, VW / 2, my, 15, menuIdx, titlePick);
     FONT.draw(ctx, touchMode ? 'TOCA PARA ELEGIR' : 'ENTER ELEGIR · M SONIDO', VW / 2, VH - 12, COL.dim, { align: 'center', outline: COL.ink });
+    ctx.globalAlpha = 0.55; FONT.draw(ctx, 'V ' + String(BUILD_ID).slice(-6).toUpperCase(), VW - 3, VH - 8, COL.dim, { align: 'right' }); ctx.globalAlpha = 1;
   }
 
   // historia de cada etapa
