@@ -1,0 +1,41 @@
+{
+  "id": "./",
+  "name": "Escalada Épica · Cuentos del Medioevo",
+  "short_name": "Escalada Épica",
+  "description": "Plataformas de escalada en pixel art: trepa el Monte Sagrado por el bosque, la nieve, el volcán, la torre fantasma y el plano espiritual. 50 niveles y 5 jefes. Sin anuncios.",
+  "lang": "es-CL",
+  "dir": "ltr",
+  "categories": [
+    "games"
+  ],
+  "start_url": "./?src=app",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
+  "orientation": "portrait",
+  "background_color": "#120a10",
+  "theme_color": "#120a10",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
