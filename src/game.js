@@ -201,7 +201,6 @@
     };
     jb('bL', -1); jb('bU', 0); jb('bR', 1);
     document.getElementById('mPause').addEventListener('pointerdown', e => { e.preventDefault(); AUDIO.init(); if (state === 'play') openPause(); else if (state === 'pause') closePause(); else edge.back = true; });
-    document.getElementById('mMute').addEventListener('pointerdown', e => { e.preventDefault(); AUDIO.init(); toggleMute(); });
   }
   function enableTouch() { if (touchMode) return; touchMode = true; lastDevice = 'touch'; layout(); }
   window.addEventListener('touchstart', () => { AUDIO.init(); enableTouch(); }, { passive: true });
@@ -1507,7 +1506,7 @@
   }
 
   // ---------- menús ----------
-  function toggleMute() { save.muted = !save.muted; AUDIO.setMuted(save.muted); writeSave(); document.getElementById('mMute').textContent = save.muted ? '♪ NO' : '♪ SÍ'; }
+  function toggleMute() { save.muted = !save.muted; AUDIO.setMuted(save.muted); writeSave(); }
   function openPause() { if (state !== 'play') return; state = 'pause'; menuIdx = 0; AUDIO.setWind(0); }
   function closePause() { state = 'play'; }
   function goTitle() { state = 'title'; menuIdx = 0; AUDIO.play('titulo'); AUDIO.setWind(0); }
@@ -1945,7 +1944,6 @@
   }
   setupTouch();
   layout();
-  document.getElementById('mMute').textContent = save.muted ? '♪ NO' : '♪ SÍ';
   AUDIO.play('titulo');
   requestAnimationFrame(frame);
 

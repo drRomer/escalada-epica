@@ -14,42 +14,34 @@
   #pad { display: none; width: 100%; max-width: 560px; box-sizing: border-box; padding: 14px 14px calc(10px + env(safe-area-inset-bottom)); justify-content: space-between; align-items: center; position: relative;
     background: radial-gradient(120% 90% at 50% 0%, #2a2440 0%, #1a1626 60%, #120a10 100%); border-top: 2px solid #3a3350; }
   #dpad { width: 128px; height: 128px; position: relative; touch-action: none; flex: none; }
-  #dpad .arm { position: absolute; background: #3a3350; border: 3px solid #0c0a12; box-shadow: inset 0 -5px 0 #2a2440, inset 0 3px 0 #4a4266; }
-  #dpad .h { left: 0; top: 44px; width: 128px; height: 40px; border-radius: 9px; }
-  #dpad .v { left: 44px; top: 0; width: 40px; height: 128px; border-radius: 9px; }
-  #dpad .hub { position: absolute; left: 55px; top: 55px; width: 24px; height: 24px; border-radius: 50%; background: #2a2440; }
-  #dpad .ar { position: absolute; width: 0; height: 0; border: 9px solid transparent; opacity: .55; }
-  #dpad .au { left: 58px; top: 9px; border-bottom: 12px solid #cfc6e8; border-top: 0; }
-  #dpad .ad { left: 58px; bottom: 7px; border-top: 12px solid #cfc6e8; border-bottom: 0; }
-  #dpad .al { top: 58px; left: 9px; border-right: 12px solid #cfc6e8; border-left: 0; }
-  #dpad .arr { top: 58px; right: 7px; border-left: 12px solid #cfc6e8; border-right: 0; }
-  #dpad.U .au, #dpad.D .ad, #dpad.L .al, #dpad.R .arr { opacity: 1; filter: drop-shadow(0 0 4px #f2c230); }
+  #dpad svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+  #dpad .cross { fill: #3a3350; stroke: #0c0a12; stroke-width: 3; stroke-linejoin: round; }
+  #dpad .ar { fill: #cfc6e8; opacity: .55; }
+  #dpad.U .au, #dpad.D .ad, #dpad.L .al, #dpad.R .arr { fill: #f2c230; opacity: 1; }
   #btns { display: flex; gap: 14px; align-items: flex-end; flex: none; }
   .btn { width: 76px; height: 76px; border-radius: 50%; border: 3px solid #0c0a12; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    font: 900 28px ui-monospace, Menlo, monospace; color: #fff2d8; touch-action: none; text-shadow: 0 2px 0 rgba(0,0,0,.35); }
-  .btn small { font-size: 9px; letter-spacing: 1px; margin-top: 1px; font-weight: 700; opacity: .9; }
+    font: 900 28px ui-monospace, Menlo, monospace; color: #fff2d8; touch-action: none; }
   #btns { gap: 7px; align-items: flex-end; }
-  .btn.jb { width: 58px; height: 58px; font-size: 30px; line-height: 1; }
-  .btn.jb small { font-size: 8px; }
-  #bL, #bR { background: #3d6fb0; box-shadow: inset 0 -6px 0 #2b3f6e, 0 3px 0 #0c0a12; }
-  #bU { background: #d93b4b; box-shadow: inset 0 -6px 0 #8e2131, 0 3px 0 #0c0a12; margin-bottom: 34px; }
-  .btn.on { transform: translateY(3px); filter: brightness(1.18); box-shadow: inset 0 -2px 0 rgba(0,0,0,.35); }
+  .btn.jb { width: 58px; height: 58px; font-size: 36px; line-height: 1; }
+  #bL, #bR { background: #3d6fb0; }
+  #bU { background: #d93b4b; margin-bottom: 34px; }
+  .btn.on { transform: scale(.94); filter: brightness(1.22); }
   #mini { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
-  #mini div { padding: 5px 10px; border-radius: 10px; background: #2a2440; border: 2px solid #0c0a12; font: 700 10px ui-monospace, Menlo, monospace; color: #cfc6e8; letter-spacing: 1px; touch-action: none; }
+  #mini div { padding: 5px 14px; border-radius: 10px; background: #2a2440; border: 2px solid #0c0a12; font: 700 11px ui-monospace, Menlo, monospace; color: #cfc6e8; letter-spacing: 2px; touch-action: none; }
   body.land #pad { position: fixed; inset: 0; height: auto !important; max-width: none; background: none; border: 0; pointer-events: none; align-items: flex-end;
     padding: 0 calc(18px + env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) calc(18px + env(safe-area-inset-left)); }
   body.land #dpad, body.land #btns, body.land #mini { pointer-events: auto; }
   body.land #mini { top: 10px; left: auto; right: calc(14px + env(safe-area-inset-right)); transform: none; flex-direction: column; }
-  body.land #dpad .arm { background: rgba(58,51,80,.8); }
+  body.land #dpad .cross { fill: rgba(58,51,80,.8); }
   #noscript { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
 </style>
 </head>
 <body>
   <div id="stage"><canvas id="game" width="192" height="320" tabindex="0" aria-label="Cuentos del Medioevo: Escalada Épica"></canvas></div>
   <div id="pad" aria-hidden="true">
-    <div id="dpad"><div class="arm h"></div><div class="arm v"></div><div class="hub"></div><div class="ar au"></div><div class="ar ad"></div><div class="ar al"></div><div class="ar arr"></div></div>
-    <div id="mini"><div id="mPause">❚❚ PAUSA</div><div id="mMute">♪ SÍ</div></div>
-    <div id="btns"><div class="btn jb" id="bL">↖<small>SALTO</small></div><div class="btn jb" id="bU">↑<small>SALTO</small></div><div class="btn jb" id="bR">↗<small>SALTO</small></div></div>
+    <div id="dpad"><svg viewBox="-2 -2 132 132" aria-hidden="true"><path class="cross" d="M43,8 Q43,0 51,0 H77 Q85,0 85,8 V43 H120 Q128,43 128,51 V77 Q128,85 120,85 H85 V120 Q85,128 77,128 H51 Q43,128 43,120 V85 H8 Q0,85 0,77 V51 Q0,43 8,43 H43 Z"/><polygon class="ar au" points="64,12 74,25 54,25"/><polygon class="ar ad" points="64,116 74,103 54,103"/><polygon class="ar al" points="12,64 25,54 25,74"/><polygon class="ar arr" points="116,64 103,54 103,74"/></svg></div>
+    <div id="mini"><div id="mPause">❚❚</div></div>
+    <div id="btns"><div class="btn jb" id="bL">↖</div><div class="btn jb" id="bU">↑</div><div class="btn jb" id="bR">↗</div></div>
   </div>
 <script>
 /*__SCRIPT__*/
